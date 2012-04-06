@@ -18,7 +18,8 @@ no_index:
     - t
     - inc
 requires:
+  Constant::Generate: 0.16
   Test::More: 0
 resources:
   repository: https://github.com/mnunberg/perl-JSON-SL/
-version: 0.0_3
+version: 0.0_4
