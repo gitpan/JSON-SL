@@ -142,7 +142,9 @@ pljsonsl_common_mknumeric_THX(pTHX_
     case JSONSL_SPECIALf_SIGNED:
         nbuf--;
         if (nbuf == 0) { die_numeric("found lone '-'"); }
-        if (buf[1] == '0') { die_numeric("0 after '-'"); }
+        if (nbuf > 1 && buf[1] == '0') {
+            die_numeric("Leading 0 after '-'");
+        }
         if (nbuf < (IV_DIG-1)) {
             newsv = newSViv(-((IV)state->nelem));
             break;
@@ -151,7 +153,7 @@ pljsonsl_common_mknumeric_THX(pTHX_
         break;
 
     default:
-        if (state->special_flags & (JSONSL_SPECIALf_FLOAT|JSONSL_SPECIALf_EXPONENT)) {
+        if (state->special_flags & JSONSL_SPECIALf_NUMNOINT) {
             newsv = jsonxs_inline_process_number(buf);
         }
         break;

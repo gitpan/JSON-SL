@@ -67,7 +67,6 @@ sub on_any {
         if (@_ == 3) {
             print $data . ",\n"
         } else {
-            print STDERR Dumper($info);
             die ("hrrm.. what have we here?")
                 unless $info->{Type} == TUBA_TYPE_NULL;
             print "null\n";
@@ -102,6 +101,7 @@ if ($Silent) {
 
 
 foreach (1..$Iterations) {
-    my $o = My::Giant::Tuba->new();    
+    my $o = My::Giant::Tuba->new();
+    $o->utf8(1);
     $o->parse($_) for @Chunks;
 }
