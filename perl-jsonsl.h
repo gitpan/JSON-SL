@@ -6,6 +6,7 @@
 #include "perl.h"
 #include "XSUB.h"
 #include "ppport.h"
+#include <limits.h>
 /**
  * Default depth limit to use, if none supplied
  */
@@ -36,6 +37,7 @@
 #warning "You are using a Perl from the stone age. This code might work.."
 #endif /* 5.10.0 */
 
+
 /**
  * Extended fields for a stack state
  * sv: the raw SV (never a reference)
@@ -59,8 +61,8 @@
  * non-exportable
  */
 #define JSONSL_API static
-#include "jsonsl.h"
-#include "jsonsl.c"
+#include "jsonsl/jsonsl.h"
+#include "jsonsl/jsonsl.c"
 
 /**
  * For threaded perls, this stores the THX/my_perl context
@@ -204,7 +206,7 @@ typedef enum {
 
 
 #define PLTUBA_DEFINE_XMETHGV
-#include "tuba_dispatch_getmeth.h"
+#include "srcout/tuba_dispatch_getmeth.h"
 #undef PLTUBA_DEFINE_XMETHGV
 
 /* These are stringified as the 'Info' keys */
@@ -253,10 +255,11 @@ typedef struct {
         int no_cache_mro;
         int accum_kv;
         int cb_unified;
+        int allow_unhandled;
     } options;
 
 #define PLTUBA_METHGV_STRUCT
-#include "tuba_dispatch_getmeth.h"
+#include "srcout/tuba_dispatch_getmeth.h"
 #undef PLTUBA_METHGV_STRUCT
     /* The accumulators */
     SV *accum;
