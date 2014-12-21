@@ -50,5 +50,6 @@ eg/bench.pl
 eg/synopsis.pl
 eg/couchrow.pl
 eg/tuba.pl
+eg/json_sl
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

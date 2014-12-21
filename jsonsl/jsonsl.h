@@ -163,7 +163,6 @@ typedef enum {
  * Various errors which may be thrown while parsing JSON
  */
 #define JSONSL_XERR \
-    X(SUCCESS) \
 /* Trailing garbage characters */ \
     X(GARBAGE_TRAILING) \
 /* We were expecting a 'special' (numeric, true, false, null) */ \
@@ -207,9 +206,12 @@ typedef enum {
 /* Duplicate slash */ \
     X(JPR_DUPSLASH) \
 /* No leading root */ \
-    X(JPR_NOROOT)
+    X(JPR_NOROOT) \
+/* Allocation failure */ \
+    X(ENOMEM)
 
 typedef enum {
+    JSONSL_ERROR_SUCCESS = 0,
 #define X(e) \
     JSONSL_ERROR_##e,
     JSONSL_XERR
@@ -536,6 +538,15 @@ void jsonsl_destroy(jsonsl_t jsn);
     ? (jsn->stack + (cur->level-1)) \
     : NULL
 
+/**
+ * Gets the state of the last fully consumed child of this parent. This is
+ * only valid in the parent's POP callback.
+ *
+ * @param the lexer
+ * @return A pointer to the child.
+ */
+#define jsonsl_last_child(jsn, parent) \
+    (jsn->stack + (parent->level+1))
 
 /**
  * This enables receiving callbacks on all events. Doesn't do
@@ -620,7 +631,8 @@ void jsonsl_dump_global_metrics(void);
 #define JSONSL_XMATCH \
     X(COMPLETE,1) \
     X(POSSIBLE,0) \
-    X(NOMATCH,-1)
+    X(NOMATCH,-1) \
+    X(TYPE_MISMATCH, -2)
 
 typedef enum {
 
@@ -644,11 +656,19 @@ typedef enum {
 } jsonsl_jpr_type_t;
 
 struct jsonsl_jpr_component_st {
+    /** The string the component points to */
     char *pstr;
     /** if this is a numeric type, the number is 'cached' here */
     unsigned long idx;
+    /** The length of the string */
     size_t len;
+    /** The type of component (NUMERIC or STRING) */
     jsonsl_jpr_type_t ptype;
+
+    /** Set this to true to enforce type checking between dict keys and array
+     * indices. jsonsl_jpr_match() will return TYPE_MISMATCH if it detects
+     * that an array index is actually a child of a dictionary. */
+    int is_arridx;
 };
 
 struct jsonsl_jpr_st {
@@ -703,7 +723,7 @@ void jsonsl_jpr_destroy(jsonsl_jpr_t jpr);
  * or successful.
  */
 JSONSL_API
-jsonsl_jpr_match_t jsonsl_jpr_match(jsonsl_jpr_t jpr,
+jsonsl_jpr_match_t jsonsl_jpr_match(const jsonsl_jpr_t jpr,
                                     jsonsl_type_t parent_type,
                                     unsigned int parent_level,
                                     const char *key, size_t nkey);
