@@ -556,9 +556,6 @@ jsonsl_feed(jsonsl_t jsn, const jsonsl_char_t *bytes, size_t nbytes)
 JSONSL_API
 const char* jsonsl_strerror(jsonsl_error_t err)
 {
-    if (err == JSONSL_ERROR_SUCCESS) {
-        return "SUCCESS";
-    }
 #define X(t) \
     if (err == JSONSL_ERROR_##t) \
         return #t;
@@ -682,21 +679,19 @@ JSONSL_API
 jsonsl_jpr_t
 jsonsl_jpr_new(const char *path, jsonsl_error_t *errp)
 {
-    char *my_copy = NULL;
+    char *my_copy;
     int count, curidx;
-    struct jsonsl_jpr_st *ret = NULL;
-    struct jsonsl_jpr_component_st *components = NULL;
+    struct jsonsl_jpr_st *ret;
+    struct jsonsl_jpr_component_st *components;
     size_t origlen;
     jsonsl_error_t errstacked;
-
-#define JPR_BAIL(err) *errp = err; goto GT_ERROR;
 
     if (errp == NULL) {
         errp = &errstacked;
     }
 
     if (path == NULL || *path != '/') {
-        JPR_BAIL(JSONSL_ERROR_JPR_NOROOT);
+        *errp = JSONSL_ERROR_JPR_NOROOT;
         return NULL;
     }
 
@@ -708,7 +703,8 @@ jsonsl_jpr_new(const char *path, jsonsl_error_t *errp)
             if (*c == '/') {
                 count++;
                 if (*(c+1) == '/') {
-                    JPR_BAIL(JSONSL_ERROR_JPR_DUPSLASH);
+                    *errp = JSONSL_ERROR_JPR_DUPSLASH;
+                    return NULL;
                 }
             }
         }
@@ -718,15 +714,7 @@ jsonsl_jpr_new(const char *path, jsonsl_error_t *errp)
     }
 
     components = malloc(sizeof(*components) * count);
-    if (!components) {
-        JPR_BAIL(JSONSL_ERROR_ENOMEM);
-    }
-
     my_copy = malloc(strlen(path) + 1);
-    if (!my_copy) {
-        JPR_BAIL(JSONSL_ERROR_ENOMEM);
-    }
-
     strcpy(my_copy, path);
 
     components[0].ptype = JSONSL_PATH_ROOT;
@@ -745,7 +733,9 @@ jsonsl_jpr_new(const char *path, jsonsl_error_t *errp)
         }
 
         if (pathret == JSONSL_PATH_INVALID) {
-            JPR_BAIL(JSONSL_ERROR_JPR_BADPATH);
+            free(components);
+            free(my_copy);
+            return NULL;
         }
     } else {
         curidx = 1;
@@ -754,30 +744,14 @@ jsonsl_jpr_new(const char *path, jsonsl_error_t *errp)
     path--; /*revert path to leading '/' */
     origlen = strlen(path) + 1;
     ret = malloc(sizeof(*ret));
-    if (!ret) {
-        JPR_BAIL(JSONSL_ERROR_ENOMEM);
-    }
-    ret->orig = malloc(origlen);
-    if (!ret->orig) {
-        JPR_BAIL(JSONSL_ERROR_ENOMEM);
-    }
     ret->components = components;
     ret->ncomponents = curidx;
     ret->basestr = my_copy;
+    ret->orig = malloc(origlen);
     ret->norig = origlen-1;
     strcpy(ret->orig, path);
 
     return ret;
-
-    GT_ERROR:
-    free(my_copy);
-    free(components);
-    if (ret) {
-        free(ret->orig);
-    }
-    free(ret);
-    return NULL;
-#undef JPR_BAIL
 }
 
 void jsonsl_jpr_destroy(jsonsl_jpr_t jpr)
@@ -790,7 +764,7 @@ void jsonsl_jpr_destroy(jsonsl_jpr_t jpr)
 
 JSONSL_API
 jsonsl_jpr_match_t
-jsonsl_jpr_match(const jsonsl_jpr_t jpr,
+jsonsl_jpr_match(jsonsl_jpr_t jpr,
                    jsonsl_type_t parent_type,
                    unsigned int parent_level,
                    const char *key,
@@ -824,22 +798,17 @@ jsonsl_jpr_match(const jsonsl_jpr_t jpr,
     }
 
     /* Check numeric array index */
-    if (p_component->ptype == JSONSL_PATH_NUMERIC) {
-        if (parent_type == JSONSL_T_LIST) {
-            if (p_component->idx != nkey) {
-                return JSONSL_MATCH_NOMATCH;
+    if (p_component->ptype == JSONSL_PATH_NUMERIC
+            && parent_type == JSONSL_T_LIST) {
+        if (p_component->idx != nkey) {
+            return JSONSL_MATCH_NOMATCH;
+        } else {
+            if (parent_level == jpr->ncomponents-1) {
+                return JSONSL_MATCH_COMPLETE;
             } else {
-                if (parent_level == jpr->ncomponents-1) {
-                    return JSONSL_MATCH_COMPLETE;
-                } else {
-                    return JSONSL_MATCH_POSSIBLE;
-                }
+                return JSONSL_MATCH_POSSIBLE;
             }
-        } else if (p_component->is_arridx) {
-            return JSONSL_MATCH_TYPE_MISMATCH;
         }
-    } else if (p_component->is_arridx && parent_type == JSONSL_T_OBJECT) {
-        return JSONSL_MATCH_TYPE_MISMATCH;
     }
 
     /* Check lengths */
